@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORB22 - Oficial</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { background-color: #050505; color: white; font-family: sans-serif; overflow-x: hidden; }
+        .gold-gradient { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .game-iframe { width: 100%; height: 100%; border: none; border-radius: 20px; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [balance, setBalance] = useState(0.00); 
+            const [view, setView] = useState("home");
+            const [activeGame, setActiveGame] = useState(null);
+            const [showDep, setShowDep] = useState(false);
+            const [amt, setAmt] = useState("");
+            const [pixData, setPixData] = useState(null);
+
+            // JOGOS COM LINKS REAIS (DEMO)
+            const games = [
+                { id: 1, name: "Fortune Tiger", img: "https://vms-static.m-content.io/api/v1/vms/assets/v2/Fortune-Tiger_Logo.png", url: "https://m.pgsoft-games.com/126/index.html?ot=0642f534604e76092049d562f783267d&l=pt&f=https://www.pgsoft.com/" },
+                { id: 2, name: "Aviator", img: "https://upload.wikimedia.org/wikipedia/pt/0/0e/Aviator_Logo.png", url: "https://demo.spribe.io/games/aviator?currency=BRL&lang=pt" },
+                { id: 3, name: "Fortune Ox", img: "https://img.bet.global/api/v1/vms/assets/v2/Fortune-Ox_Logo.png", url: "https://m.pgsoft-games.com/98/index.html?ot=0642f534604e76092049d562f783267d&l=pt&f=https://www.pgsoft.com/" },
+                { id: 4, name: "Mines", img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8Xf2W6V6R5uM5_I-n1PAt-1Pz5m6XpW0j0A&s", url: "https://demo.spribe.io/games/mines?currency=BRL&lang=pt" },
+                { id: 5, name: "Fortune Mouse", img: "https://static.wixstatic.com/media/89f62c_80e0c83697e547e38466e31b0521e16f~mv2.png", url: "https://m.pgsoft-games.com/68/index.html?ot=0642f534604e76092049d562f783267d&l=pt&f=https://www.pgsoft.com/" },
+                { id: 6, name: "Spaceman", img: "https://www.spaceman888.com/images/spaceman-logo.png", url: "https://demogamesfree.pragmaticplay.net/gs2c/openGame.do?lang=pt&cur=BRL&gameSymbol=vs480spaceman" }
+            ];
+
+            const handleGerarPix = async () => {
+                if (amt < 5) return alert("Mínimo R$ 5,00");
+                setPixData("CARREGANDO...");
+                try {
+                    const res = await fetch('/pix', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ valor: amt, nome: user.name })
+                    });
+                    const data = await res.json();
+                    setPixData(data);
+                } catch (e) { alert("Erro"); setPixData(null); }
+            };
+
+            if (!user) {
+                return (
+                    <div className="h-screen flex items-center justify-center bg-black p-4">
+                        <div className="glass p-10 rounded-[40px] text-center w-full max-w-sm">
+                            <h1 className="text-5xl font-black text-yellow-500 mb-8 italic">ORB22</h1>
+                            <input id="u" type="text" placeholder="Nome de Usuário" className="w-full p-4 bg-black/50 border border-white/10 rounded-2xl mb-4 outline-none focus:border-yellow-500" />
+                            <button onClick={() => setUser({name: document.getElementById('u').value})} className="gold-gradient w-full py-4 rounded-2xl text-black font-black uppercase tracking-widest">Entrar Agora</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    {/* HEADER */}
+                    <header className="h-20 glass px-6 flex items-center justify-between sticky top-0 z-50">
+                        <span onClick={() => {setView('home'); setActiveGame(null);}} className="text-yellow-500 font-black italic text-3xl cursor-pointer">ORB22</span>
+                        <div className="flex items-center gap-4">
+                            <div className="text-right">
+                                <p className="text-[10px] text-gray-500 font-bold uppercase">Saldo</p>
+                                <p className="font-black text-white">R$ {balance.toFixed(2)}</p>
+                            </div>
+                            <button onClick={() => setShowDep(true)} className="gold-gradient text-black font-black px-6 py-2 rounded-full text-xs">DEPOSITAR</button>
+                        </div>
+                    </header>
+
+                    {/* CONTEÚDO DINÂMICO */}
+                    <main className="flex-1 p-4 lg:p-10">
+                        {activeGame ? (
+                            <div className="h-[80vh] w-full max-w-5xl mx-auto relative animate-in zoom-in duration-300">
+                                <button onClick={() => setActiveGame(null)} className="absolute -top-12 left-0 text-white font-bold flex items-center gap-2">← Voltar para o Início</button>
+                                <iframe src={activeGame.url} className="game-iframe shadow-2xl"></iframe>
+                            </div>
+                        ) : view === 'profile' ? (
+                            <div className="max-w-xl mx-auto glass p-10 rounded-[40px] text-center">
+                                <h2 className="text-3xl font-black italic mb-6">MINHA CONTA</h2>
+                                <p className="text-gray-400 mb-10">Olá, <span className="text-white">{user.name}</span></p>
+                                <button onClick={() => window.location.reload()} className="text-red-500 font-bold underline">SAIR DA CONTA</button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 animate-in fade-in duration-500">
+                                {games.map(game => (
+                                    <div 
+                                        key={game.id} 
+                                        onClick={() => {
+                                            if(balance <= 0) alert("Você precisa de saldo para jogar!");
+                                            else setActiveGame(game);
+                                        }}
+                                        className="glass rounded-[32px] p-2 hover:border-yellow-500 cursor-pointer transition-all active:scale-95 group"
+                                    >
+                                        <div className="aspect-square rounded-[24px] overflow-hidden bg-black/40 mb-3">
+                                            <img src={game.img} className="w-full h-full object-cover group-hover:scale-110 transition-all" />
+                                        </div>
+                                        <div className="p-2">
+                                            <p className="font-black text-xs uppercase italic truncate">{game.name}</p>
+                                            <p className="text-[10px] text-gray-500 font-bold mt-1">JOGAR AGORA</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </main>
+
+                    {/* MODAL DEPÓSITO */}
+                    {showDep && (
+                        <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-6 z-[60]">
+                            <div className="bg-zinc-900 border border-white/10 p-8 rounded-[40px] w-full max-w-sm text-center relative">
+                                <button onClick={() => {setShowDep(false); setPixData(null);}} className="absolute top-6 right-6 text-gray-500">✕</button>
+                                <h2 className="text-xl font-black mb-6 italic uppercase">Depositar Pix</h2>
+                                {!pixData ? (
+                                    <>
+                                        <input type="number" value={amt} onChange={e => setAmt(e.target.value)} placeholder="R$ 0,00" className="w-full p-4 bg-black border border-white/10 rounded-2xl text-2xl font-bold mb-4 outline-none text-center" />
+                                        <button onClick={handleGerarPix} className="gold-gradient w-full py-4 rounded-2xl text-black font-black uppercase">Gerar QR Code</button>
+                                    </>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {pixData === "CARREGANDO..." ? <p>Gerando...</p> : (
+                                            <>
+                                                <div className="bg-white p-2 inline-block rounded-xl">
+                                                    <img src={`data:image/png;base64,${pixData.qrcodeBase64}`} className="w-48 h-48" />
+                                                </div>
+                                                <p className="text-[9px] break-all text-gray-500">{pixData.copyPaste}</p>
+                                                <p className="text-yellow-500 font-bold text-xs animate-pulse">PAGUE PARA JOGAR</p>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
