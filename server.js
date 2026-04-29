@@ -8,8 +8,10 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static('public'));
 
-// CONEXÃO COM O BANCO DE DADOS (Vamos configurar no Render)
-mongoose.connect(process.env.MONGO_URL);
+// Tenta conectar ao banco, se falhar ele avisa no log mas não desliga o servidor
+mongoose.connect(process.env.MONGO_URL)
+  .then(() => console.log("Conectado ao MongoDB com sucesso!"))
+  .catch(err => console.log("Erro ao conectar no MongoDB. Verifique a senha e o IP no Atlas!", err));
 
 const User = mongoose.model('User', {
     username: String,
@@ -18,44 +20,36 @@ const User = mongoose.model('User', {
 
 const MINHA_CHAVE = process.env.SUITPAY_TOKEN;
 
-// LOGIN E BUSCA DE SALDO
+// ROTA: Cadastro e Login (Corrige o problema do cadastro)
 app.post('/auth', async (req, res) => {
-    const { username } = req.body;
-    let user = await User.findOne({ username });
-    if (!user) user = await User.create({ username, balance: 0 });
-    res.json(user);
+    try {
+        const { username } = req.body;
+        if (!username) return res.status(400).json({ error: "Nome vazio" });
+        
+        let user = await User.findOne({ username });
+        if (!user) {
+            user = await User.create({ username, balance: 0 });
+        }
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ error: "Erro no servidor" });
+    }
 });
 
-// DEPÓSITO
+// ROTA: Gerar Pix (Depósito)
 app.post('/pix', async (req, res) => {
     try {
+        const { valor, nome } = req.body;
         const response = await axios.post('https://api.suitpay.app/api/v1/gateway/request-qrcode', {
-            requestNumber: "DEP" + Math.floor(Math.random() * 999999),
-            amount: req.body.valor,
-            client: { name: req.body.nome, document: "12345678909", email: "c@e.com" }
+            requestNumber: nome + "_" + Date.now(),
+            amount: valor,
+            client: { name: nome, document: "12345678909", email: "c@e.com" }
         }, { headers: { 'Authorization': `Bearer ${MINHA_CHAVE}` } });
         res.json(response.data);
-    } catch (error) { res.status(500).json({ error: "Erro" }); }
-});
-
-// SAQUE
-app.post('/sacar', async (req, res) => {
-    try {
-        const { valor, chavePix, username } = req.body;
-        const user = await User.findOne({ username });
-        if (user.balance < valor) return res.status(400).json({ error: "Sem saldo" });
-
-        await axios.post('https://api.suitpay.app/api/v1/gateway/pix-payment', {
-            value: valor,
-            key: chavePix,
-            typeKey: 'CPF'
-        }, { headers: { 'Authorization': `Bearer ${MINHA_CHAVE}` } });
-
-        user.balance -= valor;
-        await user.save();
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: "Erro Saque" }); }
+    } catch (error) {
+        res.status(500).json({ error: "Erro na SuitPay" });
+    }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Servidor Online!"));
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
